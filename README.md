@@ -13,5 +13,5 @@ What It Does
 - ✅ Recreates original folder hierarchy under the source folder
 - ✅ Renames and moves each file to its proper location
 - ✅ Restores the original timestamp (creation time)
-- ✅ Removes the hidden attribute from restored files (Windows only)
+- ✅ Removes the hidden attribute from restored files
 - ✅ Logs skipped files with detailed reasons
