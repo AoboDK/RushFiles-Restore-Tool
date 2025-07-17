@@ -1,21 +1,9 @@
 import os
-import re
 import json
 import shutil
 import ctypes
 from datetime import datetime
 from tqdm import tqdm
-
-# Function to extract custom name and extension from .RFMETA filename
-def extract_custom_name_and_extension(filename):
-    match = re.search(r'-(.*?)(\.[a-z0-9]+)?\.RFMETA$', filename, re.IGNORECASE)
-    if match:
-        custom_name = match.group(1).strip()
-        file_extension = match.group(2).lower() if match.group(2) else ".unknown"
-        custom_name = re.sub(r'^[a-f0-9\-]+-', '', custom_name).strip()
-        return custom_name, file_extension
-    else:
-        return None, None
 
 # Generate unique filename if needed
 def generate_unique_name(folder_path, new_name):
