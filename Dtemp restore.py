@@ -45,7 +45,6 @@ def restore_files_with_structure(folder_path):
     files = os.listdir(folder_path)
     files_without_extension = [f for f in files if '.' not in f]
     rfmeta_files = [f for f in files if f.lower().endswith('.rfmeta')]
-    meta_map = {rfm.split('.')[0]: rfm for rfm in rfmeta_files}
     renamed_files = 0
     skipped_files = []
 
@@ -55,7 +54,13 @@ def restore_files_with_structure(folder_path):
 
     for file in tqdm(files_without_extension, desc="Restoring"):
         base_name = file
-        matching_rfmeta = meta_map.get(base_name)
+        matching_rfmeta = None
+
+        # FIXED: fallback to partial matching instead of dictionary mapping
+        for rfmeta in rfmeta_files:
+            if base_name in rfmeta:
+                matching_rfmeta = rfmeta
+                break
 
         if matching_rfmeta:
             meta_path = os.path.join(folder_path, matching_rfmeta)
