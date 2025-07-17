@@ -4,6 +4,7 @@ import json
 import shutil
 import ctypes
 from datetime import datetime
+from tqdm import tqdm
 
 # Function to extract custom name and extension from .RFMETA filename
 def extract_custom_name_and_extension(filename):
@@ -33,7 +34,7 @@ def apply_original_timestamp(dest_file, timestamp):
         ts = dt.timestamp()
         os.utime(dest_file, (ts, ts))
     except Exception as e:
-        print(f"Failed to apply timestamp to {dest_file}: {e}")
+        tqdm.write(f"Failed to apply timestamp to {dest_file}: {e}")
 
 # Normalize path safely
 def safe_path(path):
@@ -48,7 +49,7 @@ def remove_hidden_attribute(file_path):
             if attrs & FILE_ATTRIBUTE_HIDDEN:
                 ctypes.windll.kernel32.SetFileAttributesW(str(file_path), attrs & ~FILE_ATTRIBUTE_HIDDEN)
     except Exception as e:
-        print(f"Failed to remove hidden attribute from {file_path}: {e}")
+        tqdm.write(f"Failed to remove hidden attribute from {file_path}: {e}")
 
 # Main process
 
@@ -63,7 +64,7 @@ def restore_files_with_structure(folder_path):
     print(f"Files without extension: {len(files_without_extension)}")
     print(f".RFMETA files: {len(rfmeta_files)}")
 
-    for file in files_without_extension:
+    for file in tqdm(files_without_extension, desc="Restoring"):
         base_name = file
         matching_rfmeta = None
 
@@ -101,7 +102,7 @@ def restore_files_with_structure(folder_path):
 
                 os.remove(meta_path)
                 renamed_files += 1
-                print(f"Restored: {final_path}")
+                tqdm.write(f"Restored: {final_path}")
 
             except Exception as e:
                 skipped_files.append(f"{base_name} - Error during processing: {e}")
