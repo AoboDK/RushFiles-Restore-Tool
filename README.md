@@ -15,3 +15,8 @@ What It Does
 - ✅ Restores the original timestamp (creation time)
 - ✅ Removes the hidden attribute from restored files
 - ✅ Logs skipped files with detailed reasons
+
+## Requirements
+
+- Python 3.x
+- [`tqdm`](https://pypi.org/project/tqdm/) for progress bars (`pip install tqdm`)
