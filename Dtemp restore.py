@@ -21,8 +21,8 @@ def apply_original_timestamp(dest_file, timestamp):
         dt = isoparse(timestamp)
         ts = dt.timestamp()
         os.utime(dest_file, (ts, ts))
-    except Exception as e:
-        tqdm.write(f"Failed to apply timestamp to {dest_file}: {e}")
+    except:
+        pass  # Quiet failure
 
 # Normalize path safely
 def safe_path(path):
@@ -36,27 +36,22 @@ def remove_hidden_attribute(file_path):
             attrs = ctypes.windll.kernel32.GetFileAttributesW(str(file_path))
             if attrs & FILE_ATTRIBUTE_HIDDEN:
                 ctypes.windll.kernel32.SetFileAttributesW(str(file_path), attrs & ~FILE_ATTRIBUTE_HIDDEN)
-    except Exception as e:
-        tqdm.write(f"Failed to remove hidden attribute from {file_path}: {e}")
+    except:
+        pass  # Quiet failure
 
 # Main process
-
 def restore_files_with_structure(folder_path):
+    folder_path = os.path.normpath(folder_path.strip())
     files = os.listdir(folder_path)
     files_without_extension = [f for f in files if '.' not in f]
     rfmeta_files = [f for f in files if f.lower().endswith('.rfmeta')]
     renamed_files = 0
     skipped_files = []
 
-    print(f"Files in folder: {len(files)}")
-    print(f"Files without extension: {len(files_without_extension)}")
-    print(f".RFMETA files: {len(rfmeta_files)}")
-
-    for file in tqdm(files_without_extension, desc="Restoring"):
+    for file in tqdm(files_without_extension, desc="Restoring", ncols=75):
         base_name = file
         matching_rfmeta = None
 
-        # FIXED: fallback to partial matching instead of dictionary mapping
         for rfmeta in rfmeta_files:
             if base_name in rfmeta:
                 matching_rfmeta = rfmeta
@@ -66,19 +61,22 @@ def restore_files_with_structure(folder_path):
             meta_path = os.path.join(folder_path, matching_rfmeta)
             data_path = os.path.join(folder_path, base_name)
             try:
-                with open(meta_path, 'r', encoding='utf-8') as f:
-                    metadata = json.load(f)
+                try:
+                    with open(meta_path, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                except:
+                    with open(meta_path, 'r') as f:
+                        metadata = json.load(f)
 
                 dest_folder = metadata.get("ArchivedFullName")
                 timestamp = metadata.get("CreationTime")
                 public_name = metadata.get("PublicName")
 
                 if not dest_folder or not public_name:
-                    skipped_files.append(f"{base_name} - Missing destination folder or name in {matching_rfmeta}")
+                    skipped_files.append(f"{base_name} - Missing destination folder or name")
                     continue
 
-                rel_path = safe_path(dest_folder)
-                target_dir = os.path.join(folder_path, rel_path)
+                target_dir = os.path.join(folder_path, safe_path(dest_folder))
                 os.makedirs(target_dir, exist_ok=True)
 
                 final_name = generate_unique_name(target_dir, public_name)
@@ -91,19 +89,24 @@ def restore_files_with_structure(folder_path):
 
                 os.remove(meta_path)
                 renamed_files += 1
-                tqdm.write(f"Restored: {final_path}")
 
             except Exception as e:
-                skipped_files.append(f"{base_name} - Error during processing: {e}")
+                skipped_files.append(f"{base_name} - Error: {e}")
         else:
-            skipped_files.append(f"{base_name} - No matching .RFMETA file found")
+            skipped_files.append(f"{base_name} - No matching .RFMETA file")
 
-    with open(os.path.join(folder_path, "skipped_files_detailed.log"), "w", encoding="utf-8") as log_file:
+    # Log skipped files
+    log_path = os.path.join(folder_path, "skipped_files_detailed.log")
+    with open(log_path, "w", encoding="utf-8") as log_file:
         log_file.write("\n".join(skipped_files))
 
-    print("\nRestoration completed.")
-    print(f"Files restored: {renamed_files}")
-    print(f"Files skipped: {len(skipped_files)} (see skipped_files_detailed.log)")
+    # Final summary
+    print("\n\n========== RESTORE SUMMARY ==========")
+    print(f"Files processed     : {len(files_without_extension)}")
+    print(f"Files restored      : {renamed_files}")
+    print(f"Files skipped       : {len(skipped_files)}")
+    print(f"Skipped log written : {log_path}")
+    print("=====================================")
     input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
