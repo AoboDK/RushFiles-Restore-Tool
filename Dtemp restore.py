@@ -2,8 +2,8 @@ import os
 import json
 import shutil
 import ctypes
-from datetime import datetime
 from tqdm import tqdm
+
 
 # Generate unique filename if needed
 def generate_unique_name(folder_path, new_name):
@@ -14,30 +14,41 @@ def generate_unique_name(folder_path, new_name):
         counter += 1
     return new_name
 
+
 # Apply original timestamp
+
 def apply_original_timestamp(dest_file, timestamp):
     try:
         from dateutil.parser import isoparse
         dt = isoparse(timestamp)
         ts = dt.timestamp()
         os.utime(dest_file, (ts, ts))
-    except:
+    except Exception:
         pass  # Quiet failure
 
+
 # Normalize path safely
+
 def safe_path(path):
-    return os.path.normpath(path.strip().replace("\\", os.sep).replace("/", os.sep))
+    return os.path.normpath(
+        path.strip().replace("\\", os.sep).replace("/", os.sep)
+    )
+
 
 # Unhide file on Windows
+
 def remove_hidden_attribute(file_path):
     try:
         if os.name == 'nt':
             FILE_ATTRIBUTE_HIDDEN = 0x02
             attrs = ctypes.windll.kernel32.GetFileAttributesW(str(file_path))
             if attrs & FILE_ATTRIBUTE_HIDDEN:
-                ctypes.windll.kernel32.SetFileAttributesW(str(file_path), attrs & ~FILE_ATTRIBUTE_HIDDEN)
-    except:
+                ctypes.windll.kernel32.SetFileAttributesW(
+                    str(file_path), attrs & ~FILE_ATTRIBUTE_HIDDEN
+                )
+    except Exception:
         pass  # Quiet failure
+
 
 # Main process
 def restore_files_with_structure(folder_path):
@@ -70,7 +81,7 @@ def restore_files_with_structure(folder_path):
                 try:
                     with open(meta_path, 'r', encoding='utf-8') as f:
                         metadata = json.load(f)
-                except:
+                except Exception:
                     with open(meta_path, 'r') as f:
                         metadata = json.load(f)
 
@@ -79,20 +90,29 @@ def restore_files_with_structure(folder_path):
                 public_name = metadata.get("PublicName")
 
                 if not dest_folder or not public_name:
-                    skipped_files.append(f"{base_name} - Missing destination folder or name")
+                    skipped_files.append(
+                        f"{base_name} - Missing destination folder or name"
+                    )
                     continue
 
                 target_dir = os.path.join(folder_path, safe_path(dest_folder))
                 normalized_target = os.path.normpath(target_dir)
 
                 # Abort if normalized path escapes the base folder
-                if os.path.commonpath([folder_path, normalized_target]) != folder_path:
-                    skipped_files.append(f"{base_name} - Invalid destination path")
+                if (
+                    os.path.commonpath([folder_path, normalized_target])
+                    != folder_path
+                ):
+                    skipped_files.append(
+                        f"{base_name} - Invalid destination path"
+                    )
                     continue
 
                 os.makedirs(normalized_target, exist_ok=True)
 
-                final_name = generate_unique_name(normalized_target, public_name)
+                final_name = generate_unique_name(
+                    normalized_target, public_name
+                )
                 final_path = os.path.join(normalized_target, final_name)
 
                 shutil.move(data_path, final_path)
@@ -121,6 +141,7 @@ def restore_files_with_structure(folder_path):
     print(f"Skipped log written : {log_path}")
     print("=====================================")
     input("\nPress Enter to exit...")
+
 
 if __name__ == "__main__":
     folder_path = input("Enter the folder path containing the files: ").strip()
