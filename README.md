@@ -20,3 +20,9 @@ What It Does
 
 - Python 3.x
 - [`tqdm`](https://pypi.org/project/tqdm/) for progress bars (`pip install tqdm`)
+
+Install the Python dependencies from the repository root with:
+
+```bash
+pip install -r requirements.txt
+```
