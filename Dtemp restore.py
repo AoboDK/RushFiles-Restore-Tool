@@ -41,6 +41,12 @@ def remove_hidden_attribute(file_path):
 
 # Main process
 def restore_files_with_structure(folder_path):
+    """Restore files based on ``.RFMETA`` data located in ``folder_path``.
+
+    The function recreates the original directory structure and moves data
+    files accordingly. Destination paths are validated to ensure that they do
+    not escape the provided ``folder_path``.
+    """
     folder_path = os.path.normpath(folder_path.strip())
     files = os.listdir(folder_path)
     files_without_extension = [f for f in files if '.' not in f]
@@ -77,10 +83,17 @@ def restore_files_with_structure(folder_path):
                     continue
 
                 target_dir = os.path.join(folder_path, safe_path(dest_folder))
-                os.makedirs(target_dir, exist_ok=True)
+                normalized_target = os.path.normpath(target_dir)
 
-                final_name = generate_unique_name(target_dir, public_name)
-                final_path = os.path.join(target_dir, final_name)
+                # Abort if normalized path escapes the base folder
+                if os.path.commonpath([folder_path, normalized_target]) != folder_path:
+                    skipped_files.append(f"{base_name} - Invalid destination path")
+                    continue
+
+                os.makedirs(normalized_target, exist_ok=True)
+
+                final_name = generate_unique_name(normalized_target, public_name)
+                final_path = os.path.join(normalized_target, final_name)
 
                 shutil.move(data_path, final_path)
                 remove_hidden_attribute(final_path)
