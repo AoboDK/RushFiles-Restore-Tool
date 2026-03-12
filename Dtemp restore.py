@@ -16,7 +16,6 @@ def generate_unique_name(folder_path, new_name):
 
 
 # Apply original timestamp
-
 def apply_original_timestamp(dest_file, timestamp):
     try:
         from dateutil.parser import isoparse
@@ -28,7 +27,6 @@ def apply_original_timestamp(dest_file, timestamp):
 
 
 # Normalize path safely
-
 def safe_path(path):
     return os.path.normpath(
         path.strip().replace("\\", os.sep).replace("/", os.sep)
@@ -36,7 +34,6 @@ def safe_path(path):
 
 
 # Unhide file on Windows
-
 def remove_hidden_attribute(file_path):
     try:
         if os.name == 'nt':
@@ -48,6 +45,28 @@ def remove_hidden_attribute(file_path):
                 )
     except Exception:
         pass  # Quiet failure
+
+
+# Build an exact lookup map: base_name (no ext) -> rfmeta filename
+def build_rfmeta_lookup(folder_path, rfmeta_files):
+    """Return a dict mapping each RFMETA base name (lowercased) to its filename.
+
+    Using a pre-built dict gives O(1) lookup and avoids the substring
+    false-match bug where e.g. ``"123"`` would incorrectly match
+    ``"1234.RFMETA"``.
+    """
+    lookup = {}
+    for rfmeta in rfmeta_files:
+        # Strip the .rfmeta suffix to get the bare data-file name
+        base = rfmeta[: -len(".rfmeta")]          # exact suffix removal
+        key  = base.lower()                        # case-insensitive key
+        if key in lookup:
+            # Warn on duplicates so the user knows something is off
+            print(f"[WARNING] Duplicate RFMETA base name '{base}' — "
+                  f"keeping first match, skipping '{rfmeta}'")
+        else:
+            lookup[key] = rfmeta
+    return lookup
 
 
 # Main process
@@ -62,17 +81,18 @@ def restore_files_with_structure(folder_path):
     files = os.listdir(folder_path)
     files_without_extension = [f for f in files if '.' not in f]
     rfmeta_files = [f for f in files if f.lower().endswith('.rfmeta')]
+
+    # --- FIX: build an exact-match lookup instead of substring search ---
+    rfmeta_lookup = build_rfmeta_lookup(folder_path, rfmeta_files)
+
     renamed_files = 0
     skipped_files = []
 
     for file in tqdm(files_without_extension, desc="Restoring", ncols=75):
         base_name = file
-        matching_rfmeta = None
 
-        for rfmeta in rfmeta_files:
-            if base_name in rfmeta:
-                matching_rfmeta = rfmeta
-                break
+        # Exact lookup: key must equal the full data-file name (case-insensitive)
+        matching_rfmeta = rfmeta_lookup.get(base_name.lower())
 
         if matching_rfmeta:
             meta_path = os.path.join(folder_path, matching_rfmeta)
@@ -86,7 +106,7 @@ def restore_files_with_structure(folder_path):
                         metadata = json.load(f)
 
                 dest_folder = metadata.get("ArchivedFullName")
-                timestamp = metadata.get("CreationTime")
+                timestamp   = metadata.get("CreationTime")
                 public_name = metadata.get("PublicName")
 
                 if not dest_folder or not public_name:
@@ -95,7 +115,7 @@ def restore_files_with_structure(folder_path):
                     )
                     continue
 
-                target_dir = os.path.join(folder_path, safe_path(dest_folder))
+                target_dir        = os.path.join(folder_path, safe_path(dest_folder))
                 normalized_target = os.path.normpath(target_dir)
 
                 # Abort if normalized path escapes the base folder
@@ -110,9 +130,7 @@ def restore_files_with_structure(folder_path):
 
                 os.makedirs(normalized_target, exist_ok=True)
 
-                final_name = generate_unique_name(
-                    normalized_target, public_name
-                )
+                final_name = generate_unique_name(normalized_target, public_name)
                 final_path = os.path.join(normalized_target, final_name)
 
                 shutil.move(data_path, final_path)
@@ -120,7 +138,11 @@ def restore_files_with_structure(folder_path):
                 if timestamp:
                     apply_original_timestamp(final_path, timestamp)
 
-                os.remove(meta_path)
+                try:
+                    os.remove(meta_path)
+                except Exception as e:
+                    print(f"[WARNING] Could not remove RFMETA for '{base_name}': {e}")
+
                 renamed_files += 1
 
             except Exception as e:
